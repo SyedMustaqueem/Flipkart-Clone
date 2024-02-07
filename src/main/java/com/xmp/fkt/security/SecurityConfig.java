@@ -32,12 +32,14 @@ public class SecurityConfig {
 				auth -> auth.requestMatchers("/**").permitAll().anyRequest().authenticated())//these both should be at the last
 				.formLogin(Customizer.withDefaults()).build();
 	}
-
+	
 	AuthenticationProvider authenticationProvider() {
 		DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
 		provider.setUserDetailsService(customUserDetailsService);
 		provider.setPasswordEncoder(passwordEncoder());
 		return provider;
+		
+		
 	}
 
 }
