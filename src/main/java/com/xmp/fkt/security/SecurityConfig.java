@@ -38,6 +38,8 @@ public class SecurityConfig {
 		provider.setUserDetailsService(customUserDetailsService);
 		provider.setPasswordEncoder(passwordEncoder());
 		return provider;
+		
+		
 	}
 
 }
