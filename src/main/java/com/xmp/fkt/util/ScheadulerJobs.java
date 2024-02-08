@@ -19,7 +19,6 @@ private AuthService authService;
 @Scheduled(cron = "0 0 0 * * *") // Daily at midnight
 public void deleteNonVerifiedUsers()
 {
-   
-     userRepo.deleteByEmailVerifiedFalse();;
+    userRepo.findByIsEmailverified(false).forEach((user)->userRepo.delete(user));
 }
 }
