@@ -1,5 +1,6 @@
 package com.xmp.fkt.serviceImpl;
 
+import java.util.Date;
 import java.util.Random;
 
 import org.springframework.http.HttpStatus;
@@ -27,15 +28,17 @@ import com.xmp.fkt.util.ResponseStructure;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @AllArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
 	private JavaMailSender mailSender;
-	
+
 	private PasswordEncoder passwordEncoder;
-	
+
 	private ResponseStructure<UsersResponse> structure;
 
 	private UserRepo userRepo;
@@ -80,12 +83,52 @@ public class AuthServiceImpl implements AuthService {
 		userCacheStore.add(request.getEmail(), user);
 		otpCacheStore.add(request.getEmail(), OTP);
 
+		try {
+			sendOtpToMail(user, OTP);
+		} catch (MessagingException e) {
+			log.error("The email address doesnt exist"+OTP);
+			e.printStackTrace();
+		} 
 		return new ResponseEntity<ResponseStructure<UsersResponse>>(
 				structure.setStatus(HttpStatus.ACCEPTED.value())
-				.setMessage("Through OTP :" +OTP).setData(mapToUserResponse(user)),
+				//.setMessage("Through OTP :" +OTP)
+				.setMessage("Please check the mail to u might have reacived OTP")
+				.setData(mapToUserResponse(user)),
 				HttpStatus.ACCEPTED);
 	}
-	
+
+	private void sendOtpToMail(User user, String otp) throws MessagingException {
+		sendMail(MessageStructure.builder()
+				.to(user.getEmail())
+				.subject("Complete Your Registration to flipkart")
+				.sendDate(new Date())
+				.text( 
+						"hey," +user.getUserName()
+						+ "good to see you are intrested in flipkart"
+						+ "complete your registration using the otp <br>"
+						+ "<h1>"+otp+"</h1><br>"
+						+ " Note : the OTP expires in 1 minuite"
+						+ "<br><br>"
+						+ "with best regards<br>"
+						+ "flipkart"
+
+						).build());
+	}
+
+//	private void sendWelcomeMail(User user) throws MessagingException {
+//		sendMail(MessageStructure.builder()
+//				.to(user.getEmail())
+//				.subject("Welcoe to Flipkart")
+//				.sendDate(new Date())
+//				.text("hey," +user.getUserName()
+//				+ "Welcome To Flopkart"
+//				+ "We are happy To be a part of your Life"
+//				+ "<br><br>"
+//				+ "with best regards<br>"
+//				+ "flipkart"
+//						).build());
+//	}
+
 	@Async//amking method a syncromous by annoting as async
 	private void sendMail(MessageStructure message) throws MessagingException {
 		MimeMessage mineMessage= mailSender.createMimeMessage();
@@ -93,12 +136,11 @@ public class AuthServiceImpl implements AuthService {
 		helper.setTo(message.getTo());
 		helper.setSubject(message.getSubject());
 		helper.setSentDate(message.getSendDate());
-		helper.setText(message.getText());
+		helper.setText(message.getText(),true);
 		mailSender.send(mineMessage);
 	}
-	
+
 	private String generateOTP() {
-		//math.ramdom
 		return String.valueOf(new Random().nextInt(100000,999999));
 	}
 
@@ -112,16 +154,14 @@ public class AuthServiceImpl implements AuthService {
 		if(!otp.equals(otpModel.getOtp())) throw new RuntimeException("Invalied Exception");
 		user.setEmailverified(true);
 		userRepo.save(user);
+//		try {
+//			sendWelcomeMail(user);
+//		} catch (MessagingException e) {
+//			log.error("Could not send the welcome request");
+//			e.printStackTrace();
+//		}
 		return new ResponseEntity<String>("registrarion Sucessfull",HttpStatus.CREATED);
-		//		String exOTP = otpCacheStore.get("key");
-		//		// validating for null
-		//		if (exOTP != null) {
-		//			if (exOTP.equals(otp)) {// validating for correctness
-		//				return new ResponseEntity<String>(exOTP, HttpStatus.OK);
-		//			} else
-		//				return new ResponseEntity<String>("OTP is invalid", HttpStatus.OK);
-		//		} else
-		//			return new ResponseEntity<String>("OTP is expired", HttpStatus.OK);
+		
 	}
 
 	private User saveUser(User user) {
