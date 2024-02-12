@@ -1,5 +1,6 @@
 package com.xmp.fkt.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,5 +14,7 @@ public interface UserRepo extends JpaRepository<User, Integer>{
 	boolean existsByEmail(String email);
 
 	Optional<User> findByUserName(String userName);
+
+	List<User> findByIsEmailverified(boolean b);
 
 }

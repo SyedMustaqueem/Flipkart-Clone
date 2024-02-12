@@ -9,7 +9,7 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-public class AuthException extends RuntimeException{
+public class UserNotLoggedInException extends RuntimeException {
 	private String message;
 
 }
