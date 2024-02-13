@@ -31,4 +31,8 @@ public class User {
  private UserRole userRole;
  private boolean isEmailverified;
  private boolean idDeleted;
+public void setBlocked(boolean b) {
+	// TODO Auto-generated method stub
+	
+}
 }

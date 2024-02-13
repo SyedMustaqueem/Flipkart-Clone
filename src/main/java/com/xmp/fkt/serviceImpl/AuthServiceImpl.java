@@ -2,7 +2,7 @@ package com.xmp.fkt.serviceImpl;
 
 import java.time.LocalDateTime;
 import java.util.Date;
-import java.util.Iterator;
+import java.util.List;
 import java.util.Random;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -14,10 +14,10 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.CookieValue;
 
 import com.xmp.fkt.cache.CacheStore;
 import com.xmp.fkt.entity.AccessToken;
@@ -41,6 +41,7 @@ import com.xmp.fkt.service.AuthService;
 import com.xmp.fkt.util.CookieManager;
 import com.xmp.fkt.util.MessageStructure;
 import com.xmp.fkt.util.ResponseStructure;
+import com.xmp.fkt.util.SimpleResponseStructure;
 
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
@@ -83,6 +84,8 @@ public class AuthServiceImpl implements AuthService {
 
 	private RefreshTokenRepo refreshTokenRepo;
 
+	private SimpleResponseStructure simpleResponseStructure;
+	
 	@Value("${myapp.access.expiry}")
 	private int accessExpiryInSeconds;
 
@@ -252,19 +255,6 @@ public class AuthServiceImpl implements AuthService {
 
 	}
 
-	private User saveUser(User user) {
-		switch (user.getUserRole()) {
-		case CUSTOMER -> {
-			user = customerRepo.save((Customer) user);
-		}
-		case SELLER -> {
-			user = sellerRepo.save((Seller) user);
-		}
-		default -> throw new RuntimeException();
-		}
-		return user;
-	}
-
 	@Override
 	public ResponseEntity<ResponseStructure<AuthResponse>> login(AuthRequest authRequest, HttpServletResponse response) {
 		String userName=authRequest.getEmail().split("@")[0];
@@ -295,6 +285,52 @@ public class AuthServiceImpl implements AuthService {
 		}
 	}
 
+
+	@Override
+	public ResponseEntity<ResponseStructure<SimpleResponseStructure>> revokeAllDeviceAcess(String accessToken,String refreshToken,HttpServletResponse response) {
+
+		userRepo.findByUserName(SecurityContextHolder.getContext().getAuthentication().getName()).
+		ifPresent(user->{
+			blockAccessToken(accessTokenRepo.findAllByUserAndIsBlocked(user,false));
+			blockRefreshToken(refreshTokenRepo.findAllByUserAndIsBlocked(user,false));
+		});
+		
+		simpleResponseStructure.setMessage("revoked All Device Acess Sucessfully");
+		simpleResponseStructure.setStatus(HttpStatus.ACCEPTED.value());
+		return new ResponseEntity<ResponseStructure<SimpleResponseStructure>> (HttpStatus.OK);
+	}
+	
+
+	@Override
+	public ResponseEntity<ResponseStructure<SimpleResponseStructure>> revokeOtherDeviceAcess(String accessToken,
+			String refreshToken, HttpServletResponse response,String token) {
+		userRepo.findByUserName(SecurityContextHolder.getContext().getAuthentication().getName()).
+		ifPresent(user->{
+			blockAccessToken(accessTokenRepo.findAllByUserAndIsBlockedAndTokenNot(user,false,accessToken));
+			blockRefreshToken(refreshTokenRepo.findAllByUserAndIsBlockedAndTokenNot(user,false,refreshToken));
+		});
+		
+		simpleResponseStructure.setMessage("revoked All Device Acess Sucessfully");
+		simpleResponseStructure.setStatus(HttpStatus.ACCEPTED.value());
+		return new ResponseEntity<ResponseStructure<SimpleResponseStructure>> (HttpStatus.OK);
+	}
+	
+
+	
+	private void blockAccessToken(List<AccessToken> accessToken) {
+		accessToken.forEach(at ->{
+			at.setBlocked(true);
+			accessTokenRepo.save(at);
+		});
+	}
+	
+	private void blockRefreshToken(List<AccessToken> refreshToken) {
+		refreshToken.forEach(rt ->{
+			rt.setBlocked(true);
+			refreshTokenRepo.save(rt);
+		});
+	}
+	
 	@Override
 	public ResponseEntity<ResponseStructure<AuthResponse>> logout(String accessToken, String refreshToken,
 			HttpServletRequest request, HttpServletResponse response) {
@@ -307,7 +343,7 @@ public class AuthServiceImpl implements AuthService {
 		//			if(c.getName().equals("rt")) rt=c.getValue();
 		//			if(c.getName().equals("at")) at=c.getValue();
 		//		}
-			accessTokenRepo.findByToken(at).ifPresent(access ->{
+		accessTokenRepo.findByToken(at).ifPresent(access ->{
 			access.setBlocked(true);
 			accessTokenRepo.save(access);
 		});
@@ -321,7 +357,6 @@ public class AuthServiceImpl implements AuthService {
 		authStructure.setStatus(HttpStatus.OK.value());
 		authStructure.setData(null);
 		return new ResponseEntity<ResponseStructure<AuthResponse>>(authStructure,HttpStatus.OK);
-
 	}
 
 	private void grantAccess(HttpServletResponse response,User user) {
@@ -345,5 +380,18 @@ public class AuthServiceImpl implements AuthService {
 				.isBlocked(false)
 				.expiration(LocalDateTime.now().plusSeconds(refreshExpiryInSeconds))
 				.build());
+	}
+
+	private User saveUser(User user) {
+		switch (user.getUserRole()) {
+		case CUSTOMER -> {
+			user = customerRepo.save((Customer) user);
+		}
+		case SELLER -> {
+			user = sellerRepo.save((Seller) user);
+		}
+		default -> throw new RuntimeException();
+		}
+		return user;
 	}
 }
